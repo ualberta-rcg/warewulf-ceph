@@ -48,22 +48,23 @@ RUN apt-get update && apt-get install -y \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # --- 3. Fetch and Apply SCAP Security Guide Remediation ---
-RUN export SSG_VERSION=$(curl -s https://api.github.com/repos/ComplianceAsCode/content/releases/latest | grep -oP '"tag_name": "\K[^"]+' || echo "0.1.66") && \
-    echo "🔄 Using SCAP Security Guide version: $SSG_VERSION" && \
-    SSG_VERSION_NO_V=$(echo "$SSG_VERSION" | sed 's/^v//') && \
-    wget -O /ssg.zip "https://github.com/ComplianceAsCode/content/releases/download/${SSG_VERSION}/scap-security-guide-${SSG_VERSION_NO_V}.zip" && \
-    mkdir -p /usr/share/xml/scap/ssg/content && \
-    unzip -jo /ssg.zip "scap-security-guide-${SSG_VERSION_NO_V}/*" -d /usr/share/xml/scap/ssg/content/ && \
-    rm -f /ssg.zip && \
-    SCAP_GUIDE=$(find /usr/share/xml/scap/ssg/content -name "ssg-ubuntu*-ds.xml" | sort | tail -n1) && \
-    echo "📘 Found SCAP guide: $SCAP_GUIDE" && \
+RUN set -eux; \
+    SSG_VERSION=$(curl -s https://api.github.com/repos/ComplianceAsCode/content/releases/latest | grep -oP '"tag_name": "\K[^"]+' || echo "0.1.66"); \
+    echo "🔄 Using SCAP Security Guide version: $SSG_VERSION"; \
+    SSG_VERSION_NO_V=$(echo "$SSG_VERSION" | sed 's/^v//'); \
+    wget -O /ssg.zip "https://github.com/ComplianceAsCode/content/releases/download/${SSG_VERSION}/scap-security-guide-${SSG_VERSION_NO_V}.zip"; \
+    mkdir -p /usr/share/xml/scap/ssg/content; \
+    unzip -jo /ssg.zip "scap-security-guide-${SSG_VERSION_NO_V}/*" -d /usr/share/xml/scap/ssg/content/; \
+    rm -f /ssg.zip; \
+    SCAP_GUIDE="/usr/share/xml/scap/ssg/content/ssg-ubuntu2204-ds.xml"; \
+    echo "📘 Using SCAP guide: $SCAP_GUIDE"; \
     oscap xccdf eval \
         --remediate \
         --profile xccdf_org.ssgproject.content_profile_cis_level2_server \
         --results /root/oscap-results.xml \
         --report /root/oscap-report.html \
-        "$SCAP_GUIDE" || true && \
-    echo "✅ SCAP remediation done."
+        "$SCAP_GUIDE" || echo "⚠️  SCAP evaluation completed with warnings"; \
+    echo "✅ SCAP remediation complete."
 
 # --- 4. Clean up SCAP ---
 RUN rm -rf /usr/share/xml/scap/ssg/content && \
