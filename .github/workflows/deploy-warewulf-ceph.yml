@@ -1,4 +1,4 @@
-name: Build & Push RKE2 Warewulf Image
+name: Build & Push Ceph Warewulf Image
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch: # Allows manual trigger in the Actions UI
 
 env:
-  DOCKER_REPO: rkhoja/warewulf-rke2
+  DOCKER_REPO: rkhoja/warewulf-ceph
   TAG_NAME: ${{ github.ref_name }}
 
 jobs:
