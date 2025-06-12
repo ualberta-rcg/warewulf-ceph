@@ -12,7 +12,7 @@ env:
 
 jobs:
   build-and-push:
-    name: Build & Push RKE2 Node Image
+    name: Build & Push WW Ceph Node Image
     runs-on: ubuntu-latest
 
     steps:
