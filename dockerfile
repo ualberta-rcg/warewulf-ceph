@@ -41,11 +41,12 @@ RUN apt-get update && apt-get install -y \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # --- 2. Install OpenSCAP Tools ---
-RUN apt-get update && apt-get install -y \
-    openscap-scanner \
-    libopenscap25t64 \
-    openscap-common && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y \
+    openscap \
+    python3-openscap && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # --- 3. Fetch and Apply SCAP Security Guide Remediation ---
 RUN set -eux; \
@@ -68,7 +69,7 @@ RUN set -eux; \
 
 # --- 4. Clean up SCAP ---
 RUN rm -rf /usr/share/xml/scap/ssg/content && \
-    apt remove -y openscap-scanner libopenscap25t64 && \
+    apt remove -y openscap python3-openscap  && \
     apt autoremove -y && \
     apt clean && rm -rf /var/lib/apt/lists/*
 
