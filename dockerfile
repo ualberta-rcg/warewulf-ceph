@@ -29,7 +29,6 @@ RUN apt-get update && apt-get install -y \
     jq \
     bash-completion \
     chrony \
-    ntp \
     iproute2 \
     iputils-ping \
     software-properties-common \
