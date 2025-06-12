@@ -43,8 +43,7 @@ RUN apt-get update && apt-get install -y \
 # --- 2. Install OpenSCAP Tools ---
 RUN apt-get update && \
     apt-get install -y \
-    openscap \
-    python3-openscap && \
+    libopenscap8 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -69,7 +68,7 @@ RUN set -eux; \
 
 # --- 4. Clean up SCAP ---
 RUN rm -rf /usr/share/xml/scap/ssg/content && \
-    apt remove -y openscap python3-openscap  && \
+    apt remove -y libopenscap8 && \
     apt autoremove -y && \
     apt clean && rm -rf /var/lib/apt/lists/*
 
