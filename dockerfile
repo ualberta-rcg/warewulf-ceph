@@ -36,6 +36,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     auditd \
     apparmor \
+    linux-image-generic \
+    initramfs-tools \
     nfs-common \
     ceph-common && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
