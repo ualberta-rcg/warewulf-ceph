@@ -1,87 +1,52 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-
-# --- 0. Set root user ---
 USER root
 
-# --- 1. Install Core Tools, Debugging, Kubernetes Dependencies, and Kernel ---
+# --- 1. Install Base + Ceph + System Tools ---
 RUN apt-get update && apt-get install -y \
     sudo \
-    openssh-server \
-    net-tools \
-    iproute2 \
-    pciutils \
-    lvm2 \
-    nfs-common \
-    multipath-tools \
-    ifupdown \
-    rsync \
+    gnupg \
     curl \
     wget \
+    net-tools \
+    openssh-server \
+    systemd \
+    systemd-sysv \
+    dbus \
+    lvm2 \
+    cryptsetup \
+    btrfs-progs \
+    xfsprogs \
+    parted \
+    gdisk \
+    python3 \
+    python3-pip \
     vim \
     tmux \
     less \
     htop \
-    sysstat \
-    cron \
-    ipmitool \
-    smartmontools \
-    lm-sensors \
-    python3 \
-    python3-pip \
-    netplan.io \
-    unzip \
-    gnupg \
-    ansible \
-    systemd \
-    systemd-sysv \
-    dbus \
-    initramfs-tools \
-    linux-image-generic \
-    linux-headers-generic \
-    openscap-scanner \
-    libopenscap25t64 \
-    openscap-common \
-    socat \
-    conntrack \
-    ebtables \
-    ethtool \
-    ipset \
-    iptables \
-    chrony \
-    tcpdump \
-    strace \
-    lsof \
     jq \
     bash-completion \
-    open-iscsi \
-    bpfcc-tools \
-    cgroup-tools \
-    auditd \
-    apt-transport-https \
+    chrony \
+    ntp \
+    iproute2 \
+    iputils-ping \
     software-properties-common \
-    gnupg-agent \
-    ca-certificates && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    unzip \
+    ca-certificates \
+    auditd \
+    apparmor \
+    nfs-common \
+    ceph-common && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# --- 2. Set root password ---
-RUN echo "root:changeme" | chpasswd
-
-RUN groupadd wwgroup && \
-    useradd -m -d /local/home/wwuser -g sudo -s /bin/bash wwuser && \
-    echo "wwuser:wwpassword" | chpasswd 
-
-# Temporarily disable service configuration
-RUN echo '#!/bin/sh\nexit 101' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d
-
-# Create fake systemctl for environments without systemd
-RUN mkdir -p /tmp/bin && \
-    cp /usr/bin/systemctl /usr/bin/systemctl.bak && \
-    echo '#!/bin/sh\nexit 0' > /tmp/bin/systemctl && \
-    chmod +x /tmp/bin/systemctl && \
-    ln -sf /tmp/bin/systemctl /usr/bin/systemctl
+# --- 2. Install OpenSCAP Tools ---
+RUN apt-get update && apt-get install -y \
+    openscap-scanner \
+    libopenscap25t64 \
+    openscap-common && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # --- 3. Fetch and Apply SCAP Security Guide Remediation ---
 RUN export SSG_VERSION=$(curl -s https://api.github.com/repos/ComplianceAsCode/content/releases/latest | grep -oP '"tag_name": "\K[^"]+' || echo "0.1.66") && \
@@ -101,51 +66,36 @@ RUN export SSG_VERSION=$(curl -s https://api.github.com/repos/ComplianceAsCode/c
         "$SCAP_GUIDE" || true && \
     echo "✅ SCAP remediation done."
 
-# --- 4. Clean up SCAP content and scanner ---
+# --- 4. Clean up SCAP ---
 RUN rm -rf /usr/share/xml/scap/ssg/content && \
     apt remove -y openscap-scanner libopenscap25t64 && \
     apt autoremove -y && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt clean && rm -rf /var/lib/apt/lists/*
 
-# --- 5. Install RKE2 (server mode) ---
-RUN curl -sfL https://get.rke2.io | sh 
+# --- 5. Add Ceph Repos & Tools ---
+RUN curl -fsSL https://download.ceph.com/keys/release.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/ceph.gpg && \
+    echo "deb https://download.ceph.com/debian-quincy/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/ceph.list && \
+    apt-get update && apt-get install -y \
+    ceph \
+    ceph-mgr \
+    ceph-mon \
+    ceph-osd \
+    ceph-mds \
+    radosgw && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# --- Patch for kubectl, systemd unit, and audit logs ---
-ENV PATH="/var/lib/rancher/rke2/bin:${PATH}"
-
-RUN mkdir -p /etc/systemd/system && \
-    mkdir -p /etc/rancher/rke2/ && \
-    cp /usr/local/lib/systemd/system/rke2-server.service /etc/systemd/system/ && \
-    ln -s /etc/systemd/system/rke2-server.service /etc/systemd/system/multi-user.target.wants/rke2-server.service && \
-    mkdir -p /var/log/audit
-
-# --- 7. Create sysctl config for K8s networking ---
-RUN echo 'net.bridge.bridge-nf-call-iptables=1' >> /etc/sysctl.d/k8s.conf && \
-    echo 'net.bridge.bridge-nf-call-ip6tables=1' >> /etc/sysctl.d/k8s.conf && \
-    echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.d/k8s.conf && \
-    sysctl --system || true
-
-# Enable root autologin on tty1
+# --- 6. Enable systemd login ---
 RUN mkdir -p /etc/systemd/system/getty@tty1.service.d && \
     echo '[Service]' > /etc/systemd/system/getty@tty1.service.d/override.conf && \
     echo 'ExecStart=' >> /etc/systemd/system/getty@tty1.service.d/override.conf && \
     echo 'ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM' >> /etc/systemd/system/getty@tty1.service.d/override.conf
 
-RUN apt-get autoremove -y && \
+# --- 7. Clean final image and setup ---
+RUN mkdir -p /var/log/audit && \
+    update-initramfs -u && \
     apt-get clean && \
-    rm -rf /usr/src/* /var/lib/apt/lists/* /tmp/* \
-           /var/tmp/* /var/log/* /usr/share/doc /usr/share/man \
-           /usr/share/locale /usr/share/info /usr/sbin/policy-rc.d /usr/src/* 
+    rm -rf /usr/src/* /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
-# Remove fake systemctl after use
-RUN rm -f /usr/bin/systemctl && \
-    rm -rf /tmp/bin && \
-    cp /usr/bin/systemctl.bak /usr/bin/systemctl
-
-# --- 8. Rebuild initramfs (for PXE or WW images) ---
-RUN update-initramfs -u
-
-# --- 9. Systemd-compatible boot (Warewulf) ---
+# --- 8. Set up systemd boot ---
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
