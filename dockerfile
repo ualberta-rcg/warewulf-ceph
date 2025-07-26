@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     jq \
     bash-completion \
     chrony \
+    netplan.io \
     iproute2 \
     iputils-ping \
     software-properties-common \
