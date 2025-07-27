@@ -3,6 +3,9 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 USER root
 
+# --- 2. Set root password ---
+RUN echo "root:changeme" | chpasswd
+
 # --- 1. Install Base + Ceph + System Tools ---
 RUN apt-get update && apt-get install -y \
     sudo \
@@ -39,8 +42,17 @@ RUN apt-get update && apt-get install -y \
     apparmor \
     linux-image-generic \
     initramfs-tools \
-    nfs-common \
-    ceph-common && \
+    nvme-cli \
+    smartmontools \
+    pciutils \
+    lsb-release \
+    zstd \
+    rsync \
+    ethtool \
+    strace \
+    lsof \
+    tcpdump \
+    nfs-common && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # --- 2. Install OpenSCAP Tools ---
@@ -80,11 +92,13 @@ RUN curl -fsSL https://download.ceph.com/keys/release.asc | gpg --dearmor -o /et
     echo "deb https://download.ceph.com/debian-quincy/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/ceph.list && \
     apt-get update && apt-get install -y \
     ceph \
+    ceph-common \
     ceph-mgr \
     ceph-mon \
     ceph-osd \
     ceph-mds \
-    radosgw && \
+    radosgw \
+    lvm2 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # --- 6. Enable systemd login ---
@@ -92,6 +106,9 @@ RUN mkdir -p /etc/systemd/system/getty@tty1.service.d && \
     echo '[Service]' > /etc/systemd/system/getty@tty1.service.d/override.conf && \
     echo 'ExecStart=' >> /etc/systemd/system/getty@tty1.service.d/override.conf && \
     echo 'ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM' >> /etc/systemd/system/getty@tty1.service.d/override.conf
+
+# Allow Root SSH Logins
+RUN sed -i -E 's/^\s*#?\s*PermitRootLogin\s+.*/PermitRootLogin yes/' /etc/ssh/sshd_config
 
 # --- 7. Clean final image and setup ---
 RUN mkdir -p /var/log/audit && \
