@@ -92,7 +92,9 @@ wwctl image import --build --force docker://rkhoja/warewulf-ceph:latest ceph
 
 Warewulf overlays included are examples. It assumes only one IP for each node. Profiles were configured in Warewulf as follows:
 
-PUT STUFF HERE 
+--------------------------------------------------------------------------------
+**PUT STUFF HERE**
+--------------------------------------------------------------------------------
 
 ## 🤝 Support
 
