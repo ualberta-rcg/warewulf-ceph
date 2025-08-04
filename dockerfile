@@ -3,9 +3,6 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 USER root
 
-# --- 2. Set root password ---
-RUN echo "root:changeme" | chpasswd
-
 # --- 1. Install Base + Ceph + System Tools ---
 RUN apt-get update && apt-get install -y \
     sudo \
@@ -52,15 +49,23 @@ RUN apt-get update && apt-get install -y \
     strace \
     lsof \
     tcpdump \
-    nfs-common && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    nfs-common \
+    libopenscap8
 
-# --- 2. Install OpenSCAP Tools ---
-RUN apt-get update && \
-    apt-get install -y \
-    libopenscap8 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# --- 2. Set root password ---
+RUN echo "root:changeme" | chpasswd
+
+RUN groupadd -g 1001 wwgroup && \
+    useradd -u 1001 -m -d /local/home/wwuser -g wwgroup -G sudo -s /bin/bash wwuser && \
+    echo "wwuser:wwpassword" | chpasswd
+
+# --- Create Ceph user and ensure correct permissions ---
+RUN groupadd -g 167 ceph && \
+    useradd -u 167 -m -d /var/lib/ceph -g ceph -s /bin/bash ceph && \
+    echo "ceph:cephpassword" | chpasswd && \
+    mkdir -p /etc/ceph /var/log/ceph && \
+    chown -R ceph:ceph /var/lib/ceph /etc/ceph /var/log/ceph && \
+    chmod 750 /var/lib/ceph /etc/ceph /var/log/ceph
 
 # --- 3. Fetch and Apply SCAP Security Guide Remediation ---
 RUN set -eux; \
