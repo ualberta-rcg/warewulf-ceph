@@ -6,6 +6,14 @@ USER root
 # --- 2. Set root password ---
 RUN echo "root:changeme" | chpasswd
 
+RUN groupadd -g 1001 wwgroup && \
+    useradd -u 1001 -m -d /local/home/wwuser -g wwgroup -G sudo -s /bin/bash wwuser && \
+    echo "wwuser:wwpassword" | chpasswd
+
+RUN groupadd -g 167 ceph && \
+    useradd -u 167 -m -d /var/lib/ceph -g ceph -s /bin/bash ceph && \
+    echo "ceph:cephpassword" | chpasswd
+
 # --- 1. Install Base + Ceph + System Tools ---
 RUN apt-get update && apt-get install -y \
     sudo \
